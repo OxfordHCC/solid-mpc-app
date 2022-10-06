@@ -1,0 +1,29 @@
+{
+  "dependencies": {
+    "@comunica/query-sparql": "^2.4.3",
+    "@comunica/query-sparql-solid": "^2.3.0",
+    "@inrupt/solid-client": "^1.23.3",
+    "@inrupt/solid-client-authn-browser": "^1.11.2",
+    "@inrupt/vocab-common-rdf": "^1.0.5",
+    "@inrupt/vocab-solid": "^1.0.4",
+    "buffer": "^6.0.3"
+  },
+  "name": "mpc-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "start": "webpack serve --open"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "css-loader": "^6.7.1",
+    "style-loader": "^3.3.1",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0",
+    "webpack-dev-server": "^4.11.1"
+  }
+}

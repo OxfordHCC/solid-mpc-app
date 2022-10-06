@@ -1,0 +1,119 @@
+# coding: latin-1
+"""
+"""
+
+program.use_edabit(True)
+
+from Compiler.types import sint, regint, Array, MemValue
+from Compiler.library import print_ln, do_while, for_range
+from Compiler.util import if_else
+
+PORTNUM = 14000
+NUM_CLIENTS = 3
+NUM_VALUES = 4
+
+if len(program.args) > 1:
+    NUM_CLIENTS = int(program.args[1])
+
+if len(program.args) > 2:
+    NUM_VALUES = int(program.args[2])
+
+def accept_client():
+    client_socket_id = accept_client_connection(PORTNUM)
+    return client_socket_id
+
+def close_connections(number_clients):
+    @for_range(number_clients)
+    def _(i):
+        closeclientconnection(i)
+
+def client_input(t, client_socket_id):
+    """
+    Send share of random value, receive input and deduce share.
+    """
+    
+    return t.receive_from_client(NUM_VALUES, client_socket_id)
+
+
+def calc(number_clients, client_ids):
+    '''Main logic of the computation
+
+    Compute the sum of all inputs of all clients
+    '''
+
+    a = sint.Array(NUM_VALUES)
+
+    @for_range_opt(number_clients)
+    def f(i):
+        input_array = client_input(sint, i)
+        for j in range(NUM_VALUES):
+            a[j] += input_array[j]
+
+    b = sint(0)
+
+    for j in range(NUM_VALUES):
+        b += a[j]
+
+    return b
+
+
+def write_result_to_clients(sockets, number_clients, result):
+    """Send share of winning client id to all clients who joined game."""
+
+    # Setup authenticate result using share of random.
+    # client can validate ∑ winning_client_id * ∑ rnd_from_triple = ∑ auth_result
+    sint.reveal_to_clients(sockets.get_sub(number_clients), [result])
+
+def main():
+    """Listen in while loop for players to join a game.
+    Once maxiumum reached or have notified that round finished, run comparison and return result."""
+    # Start listening for client socket connections
+    listen_for_clients(PORTNUM)
+    #print_ln('Listening for client connections on base port %s', PORTNUM)
+
+    # Clients socket id (integer).
+    client_sockets = Array(NUM_CLIENTS, regint)
+    # Number of clients
+    number_clients = MemValue(regint(NUM_CLIENTS))
+    # Client ids to identity client
+    client_ids = Array(NUM_CLIENTS, sint)
+    # Keep track of received inputs
+    seen = Array(NUM_CLIENTS, regint)
+    seen.assign_all(0)
+
+    # Loop round waiting for each client to connect
+    @for_range(number_clients)
+    def client_connections(i):
+        client_id = accept_client()
+        @if_(client_id >= NUM_CLIENTS)
+        def _():
+            print_ln('client id too high')
+            crash()
+        client_sockets[client_id] = client_id
+        client_ids[client_id] = client_id
+        seen[client_id] = 1
+
+    @if_(sum(seen) < number_clients)
+    def _():
+        print_ln('Duplicated clients exist')
+        crash()
+
+
+    # Clients secret input.
+    #client_values = t.Array(NUM_CLIENTS)
+
+    #@for_range(number_clients)
+    #def _(client_id):
+    #    client_values[client_id] = client_input(t, client_id)
+
+    result = calc(number_clients, client_ids)
+    # print_ln('Found winner, index: %s.', winning_client_id.reveal())
+
+    write_result_to_clients(client_sockets, number_clients,
+                            result)
+
+    close_connections(number_clients)
+
+    print_ln('Result: %s', result.reveal())
+
+main()
