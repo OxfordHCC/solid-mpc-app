@@ -38,7 +38,8 @@ async function onSubmitUserJobInput(form) {
 
     for (const [index, [webid, data]] of res_desc.entries()) {
         const encryption_servers = await getTrustedEncryptionServers(webid);
-        const enc_srv = encryption_servers[index];
+        const server_index = Math.floor(Math.random() * encryption_servers.length);
+        const enc_srv = encryption_servers[server_index];
         const computation_servers = await getTrustedComputationServers(webid);
         listOfTrustedComputationAgents.push(computation_servers);
         computation_desc.push([index, enc_srv, data]);

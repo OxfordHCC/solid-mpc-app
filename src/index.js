@@ -30,7 +30,9 @@ function loginToSelectedIdP() {
 }
 
 async function handleRedirectAfterLogin() {
-  await handleIncomingRedirect();
+  await handleIncomingRedirect({
+    restorePreviousSession: true
+  });
 
   const session = getDefaultSession();
   if (session.info.isLoggedIn) {
