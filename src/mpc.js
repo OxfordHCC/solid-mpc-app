@@ -4,6 +4,7 @@ import { QueryEngine } from "@comunica/query-sparql-solid"
 const jobInfoForm = document.getElementById("mpc-job-form");
 
 // For information
+const textNumDP = document.getElementById("num-dp");
 const textEncSrvs = document.getElementById("enc-srvs");
 const textCompSrvs = document.getElementById("comp-srvs");
 const textAllocate = document.getElementById("allocate");
@@ -18,6 +19,7 @@ const myEngine = new QueryEngine();
 const re_hostname = new RegExp('https?://([^:/]+)(:[0-9]+)?');
 
 async function onSubmitUserJobInput(form) {
+    textNumDP.value = "";
     textEncSrvs.value = "";
     textCompSrvs.value = "";
     textAllocate.value = "";
@@ -26,27 +28,50 @@ async function onSubmitUserJobInput(form) {
     textResultClient.value = "";
     textResult.value = "";
 
-    const computation_id = "compute_1";
+    const computation_id = "compute_" + crypto.randomUUID();
     let res_desc_url = form.res_desc.value;
     const num_computation_server = parseInt(form.num_comp_agent.value);
     const protocol = form.comp_protocol.value;
     const comp_job = form.comp_job.value;
+    const method_to_merge_comp_agents = form.merge_comp_agent.value;
+    const solidFetch = getDefaultSession().fetch;
+
+    const num_dp = await runJob(computation_id, res_desc_url, num_computation_server, method_to_merge_comp_agents, protocol, comp_job, solidFetch);
+
+    textNumDP.value = num_dp;
+}
+
+async function runJob(computation_id, res_desc_url, num_computation_server, method_to_merge_comp_agents, protocol, comp_job, fetch) {
     let res_desc = await getResourceDescription(res_desc_url);
 
     let listOfTrustedComputationAgents = []
     let computation_desc = [];
 
-    for (const [index, [webid, data]] of res_desc.entries()) {
-        const encryption_servers = await getTrustedEncryptionServers(webid);
+    let f_collect_info = async (index, pref, data) => {
+        const encryption_servers = await getTrustedEncryptionServers(pref);
         const server_index = Math.floor(Math.random() * encryption_servers.length);
         const enc_srv = encryption_servers[server_index];
-        const computation_servers = await getTrustedComputationServers(webid);
+        const computation_servers = await getTrustedComputationServers(pref);
         listOfTrustedComputationAgents.push(computation_servers);
         computation_desc.push([index, enc_srv, data]);
         textEncSrvs.value += enc_srv + "\n";
     }
 
-    const method_to_merge_comp_agents = form.merge_comp_agent.value;
+    let jobs_collect_info = [];
+    res_desc.forEach(([pref, data], index) => {
+        jobs_collect_info.push(f_collect_info(index, pref, data));
+    });
+    await Promise.all(jobs_collect_info);
+    // for (const [index, [pref, data]] of res_desc.entries()) {
+    //     const encryption_servers = await getTrustedEncryptionServers(pref);
+    //     const server_index = Math.floor(Math.random() * encryption_servers.length);
+    //     const enc_srv = encryption_servers[server_index];
+    //     const computation_servers = await getTrustedComputationServers(pref);
+    //     listOfTrustedComputationAgents.push(computation_servers);
+    //     computation_desc.push([index, enc_srv, data]);
+    //     textEncSrvs.value += enc_srv + "\n";
+    // }
+
     if (method_to_merge_comp_agents != 'intersection' && method_to_merge_comp_agents != 'union') {
         alert("Invalid method to combine computation agents!");
         return ;
@@ -85,31 +110,41 @@ async function onSubmitUserJobInput(form) {
         textAllocate.value += `${player_place_id}: ${port}\n`;
     }
 
-    for (const [player_id, computation_server] of chosen_comptuation_servers.entries()) {
-        const response = dispatchComputationJob(computation_server, computation_id, player_id, protocol, num_client, comp_job, computation_server_hosts, map_player_place[player_id]);
+    const f_run_comptuation_jobs = async () => {
+        for (const [player_id, computation_server] of chosen_comptuation_servers.entries()) {
+            const response = dispatchComputationJob(computation_server, computation_id, player_id, protocol, num_client, comp_job, computation_server_hosts, map_player_place[player_id]);
 
-        response.then(function (v) {
-            v.text().then(function (t) {
-                textResPlayer.value += `${player_id}: ${t}\n`;
-            }, function () {
-                textResPlayer.value += `${player_id}: ${v.status} ${v.statusText}\n`
+            response.then(function (v) {
+                v.text().then(function (t) {
+                    textResPlayer.value += `${player_id}: ${t}\n`;
+                }, function () {
+                    textResPlayer.value += `${player_id}: ${v.status} ${v.statusText}\n`
+                })
             })
-        })
 
+        }
     }
 
-    for (const [client_id, encryption_server, data] of computation_desc) {
-        const response = dispatchEncryptionJob(computation_id, client_id, encryption_server, comp_job, computation_server_hosts, data);
-        response.then(function (v) {
-            v.text().then(function (t) {
-                const client_uuid = JSON.parse(t);
-                textResClient.value += `${client_id}: ${client_uuid}\n`;
-                queryAndDisplayClientResult(encryption_server, client_uuid, client_id);
-            }, function () {
-                textResClient.value += `${client_id}: ${v.status} ${v.statusText}\n`;
+    const f_run_encryption_jobs = async () => {
+        for (const [client_id, encryption_server, data] of computation_desc) {
+            const response = dispatchEncryptionJob(computation_id, client_id, encryption_server, comp_job, computation_server_hosts, data);
+            response.then(function (v) {
+                v.text().then(function (t) {
+                    const client_uuid = JSON.parse(t);
+                    textResClient.value += `${client_id}: ${client_uuid}\n`;
+                    if (client_id == 0)
+                        queryAndDisplayClientResult(encryption_server, client_uuid, client_id);
+                }, function () {
+                    textResClient.value += `${client_id}: ${v.status} ${v.statusText}\n`;
+                })
             })
-        })
+        }
     }
+
+    f_run_encryption_jobs();
+    f_run_comptuation_jobs();
+
+    return [ res_desc.length ];
 }
 
 async function getResourceDescription(res_desc_url) {
@@ -117,10 +152,10 @@ async function getResourceDescription(res_desc_url) {
     const bindingsStream = await myEngine.queryBindings(`
       PREFIX : <urn:solid:mpc#>
 
-      SELECT ?webid ?data WHERE {
+      SELECT ?pref ?data WHERE {
         ?spec a :MPCSourceSpec;
           :source ?s.
-        ?s :webid ?webid;
+        ?s :pref ?pref;
           :data ?data.
       } LIMIT 100`, {
           sources: [res_desc_url],
@@ -132,13 +167,13 @@ async function getResourceDescription(res_desc_url) {
     let data = [];
 
     for (const pair of bindings) {
-        data.push([pair.get("webid").value, pair.get("data").value]);
+        data.push([pair.get("pref").value, pair.get("data").value]);
     }
 
     return data;
 }
 
-async function getTrustedEncryptionServers(webid_url) {
+async function getTrustedEncryptionServers(pref_url) {
     const session = getDefaultSession();
     const bindingsStream = await myEngine.queryBindings(`
       PREFIX : <urn:solid:mpc#>
@@ -148,7 +183,7 @@ async function getTrustedEncryptionServers(webid_url) {
         ?s :trustedEncryptionServer ?server_spec.
         ?server_spec schema:url ?server.
       } LIMIT 100`, {
-          sources: [webid_url],
+          sources: [pref_url],
           '@comunica/actor-http-inrupt-solid-client-authn:session': session,
       });
 
@@ -163,7 +198,7 @@ async function getTrustedEncryptionServers(webid_url) {
     return data;
 }
 
-async function getTrustedComputationServers(webid_url) {
+async function getTrustedComputationServers(pref_url) {
     const session = getDefaultSession();
     const bindingsStream = await myEngine.queryBindings(`
       PREFIX : <urn:solid:mpc#>
@@ -173,7 +208,7 @@ async function getTrustedComputationServers(webid_url) {
         ?s :trustedComputationServer ?server_spec.
         ?server_spec schema:url ?server.
       } LIMIT 100`, {
-          sources: [webid_url],
+          sources: [pref_url],
           '@comunica/actor-http-inrupt-solid-client-authn:session': session,
       });
 

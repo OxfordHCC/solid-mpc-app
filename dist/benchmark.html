@@ -42,6 +42,29 @@
     </div>
   </section>
 
+  <section id="dummy-data-input" class="panel">
+    <div class="row">
+      <p>Create dummy resource</p>
+    </div>
+    <div class="row">
+      <label for="res_file">URL to store resource description file</label>
+      <input type="text" id="res_file" size=80 value="https://renyuneyun.solidcommunity.net/private/mpc-benchmark/resources.ttl" /><br />
+      <label for="dummy_data_dir">Directory for dummy data</label>
+      <input type="text" id="dummy_data_dir" size=80 value="https://renyuneyun.solidcommunity.net/private/mpc-benchmark/dummy-data" /><br />
+      <label for="dummy_data">Dummy data</label>
+      <input type="text" id="dummy_data" size=80 value="5" /><br />
+      <label for="count_dummy_data">Number of dummy users</label>
+      <input type="text" id="count_dummy_data" /><br />
+      <label for="count_dummy_data">Number of encryption agents</label>
+      <input type="text" id="count_enc_agent" /><br />
+      <label for="enc_agent_webid">Encryption Agent WebIDs</label>
+      <textarea id="enc_agent_webid" rows="3" cols="50">https://renyuneyun.solidweb.org/profile/card#me</textarea><br />
+      <label for="app_user_webid">MPC App User WebIDs</label>
+      <textarea id="app_user_webid" rows="3" cols="50">https://renyuneyun.solidcommunity.net/profile/card#me</textarea><br />
+      <button id="write-to-pod">Write To Pod</button>
+    </div>
+  </section>
+
   <section id="job-input" class="panel">
     <div class="row">
       <p>Input job information</p>
