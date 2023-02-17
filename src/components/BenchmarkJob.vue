@@ -14,6 +14,7 @@ const info = reactive({
   caMergeStrategy: "union",
   protocol: "shamir",
   compJob: "sum",
+  dataSize: 0,
   numIter: 3,
 });
 
@@ -49,6 +50,8 @@ async function onSubmitBenchmarkJobInput() {
             <v-radio label="Multiply" value="multiply"></v-radio>
             <v-radio label="Average" value="average"></v-radio>
           </v-radio-group>
+          <v-text-field label="Number of data in each input" type="number"
+            v-model.number="info.dataSize"></v-text-field>
           <v-text-field label="Number of iterations" type="number"
             v-model.number="info.numIter"></v-text-field>
           <v-btn type="submit" block @click.prevent="onSubmitBenchmarkJobInput()">Run Benchmark</v-btn>

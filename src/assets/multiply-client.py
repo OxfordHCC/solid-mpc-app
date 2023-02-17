@@ -11,7 +11,10 @@ client_id = int(sys.argv[1])
 in_file = sys.argv[2]
 player_hosts = [host.split(':')[0] for host in sys.argv[3].split(',') if host]
 
-array_size = 4
+def _arg_or(arg_index, fallback, _type=int):
+    return _type(sys.argv[arg_index]) if len(sys.argv) > arg_index else fallback
+    
+array_size = _arg_or(4, 4)
 
 client = Client(player_hosts, 14000, client_id)
 

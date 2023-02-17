@@ -32,7 +32,12 @@ export async function runJob(
     protocol,
     numCompAgent: num_computation_server,
     compJob: comp_job,
+    dataSize,
+    clientExtraArgs,
+    playerExtraArgs,
    } = jobInfo;
+
+   console.log([clientExtraArgs, playerExtraArgs]);
 
   let res_desc = await getResourceDescription(res_desc_url);
 
@@ -133,7 +138,9 @@ export async function runJob(
         num_client,
         comp_job,
         computation_server_hosts,
-        map_player_place[player_id]
+        map_player_place[player_id],
+        dataSize,
+        playerExtraArgs,
       );
 
       response_p.then(function (v) {
@@ -161,7 +168,9 @@ export async function runJob(
         encryption_server,
         comp_job,
         computation_server_hosts,
-        data
+        data,
+        dataSize,
+        clientExtraArgs,
       );
       const p = response.then(function (v) {
         v.text().then(
@@ -337,7 +346,9 @@ async function dispatchEncryptionJob(
   encryption_server,
   job,
   computation_servers,
-  data_url
+  data_url,
+  data_size,
+  extra_args,
 ) {
   const job_code = await getEncryptionJobCode(job);
   return await solidFetch(`${encryption_server}/client`, {
@@ -351,6 +362,8 @@ async function dispatchEncryptionJob(
       data_uri: data_url,
       client_code: job_code,
       player_servers: computation_servers,
+      data_size: data_size,
+      extra_args: extra_args,
     }),
   });
 }
@@ -371,7 +384,9 @@ async function dispatchComputationJob(
   num_client,
   job,
   computation_servers,
-  player_place_id
+  player_place_id,
+  data_size,
+  extra_args,
 ) {
   const job_code = await getComputationJobCode(job);
   return await solidFetch(`${computation_server}/player`, {
@@ -387,6 +402,8 @@ async function dispatchComputationJob(
       player_code: job_code,
       player_servers: computation_servers,
       player_place_id: player_place_id,
+      data_size: data_size,
+      extra_args,
     }),
   });
 }

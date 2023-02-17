@@ -1,0 +1,380 @@
+from Compiler.types import sint, sfix, cint, regint, Array, MemValue
+from Compiler.library import print_ln, do_while, for_range, if_
+from Compiler.util import if_else
+from Compiler.mpc_math import pow_fx, log_fx
+
+import sys
+
+from math import e
+
+# _diff = sys.argv.index('--') if '--' in sys.argv else -1
+# def _arg_or(arg_index, fallback, _type=int):
+#     if _diff == -1:
+#         return fallback
+#     arg_index += _diff
+#     return _type(sys.argv[arg_index]) if len(sys.argv) > arg_index else fallback
+def _arg_or(arg_index, fallback, _type=int):
+    arg_index += 1
+    return _type(sys.argv[arg_index]) if len(sys.argv) > arg_index else fallback
+
+QUERY_INPUT_FILE = 'Player-Data/query.in'
+_qs = []
+try:
+    with open(QUERY_INPUT_FILE) as fd:
+        line = fd.readline()
+        while line:
+            l, r = [int(n) for n in line.strip().split()]
+            _qs.append((l, r))
+            line = fd.readline()
+except e:
+    _qs = [
+            (-1, -1),
+            (1, 3),
+            (3, 5),
+            (2, 7),
+            (4, 6),
+            (0, 1),
+            (0, 2),
+            (1, 6),
+            (2, 8),
+            (5, 6),
+            ]
+num_query = len(_qs)
+queries = cint.Matrix(num_query, 2)
+for i, (l, r) in enumerate(_qs):
+    queries[i][0] = l
+    queries[i][1] = r
+
+NUM_CLIENTS = _arg_or(1, 3)
+NUM_VALUES_INPUT = _arg_or(2, 50)
+NUM_VALUES = NUM_VALUES_INPUT * NUM_CLIENTS
+
+num_bins = _arg_or(3, 10)
+bin_size = _arg_or(4, 2)
+bin_values = sfix.Array(num_bins)
+
+epsilon = _arg_or(5, 2)
+T = _arg_or(6, 30)
+
+
+PORTNUM = 14000
+
+
+data = sint.Array(NUM_VALUES)
+n = NUM_VALUES  # Num of data
+
+input_buf = sint.Array(NUM_VALUES_INPUT)
+num_players = get_number_of_players()
+
+print(f"num_query: {num_query} num_client: {NUM_CLIENTS} num_input: {NUM_VALUES_INPUT} num_bin: {num_bins} bin_size: {bin_size} T: {T} epsilon: {epsilon}")
+
+
+def accept_client():
+    client_socket_id = accept_client_connection(PORTNUM)
+    return client_socket_id
+
+def close_connections(number_clients):
+    @for_range(number_clients)
+    def _(i):
+        closeclientconnection(i)
+
+def client_input(t, client_socket_id):
+    """
+    Send share of random value, receive input and deduce share.
+    """
+    
+    return t.receive_from_client(NUM_VALUES_INPUT, client_socket_id)
+
+def write_result_to_clients(sockets, number_clients, result):
+    """Send share of winning client id to all clients who joined game."""
+
+    # Setup authenticate result using share of random.
+    # client can validate ∑ winning_client_id * ∑ rnd_from_triple = ∑ auth_result
+    sfix.reveal_to_clients(sockets.get_sub(number_clients), result)
+
+
+def get_min_max(array, size, dtype=sint):
+    min_, max_ = dtype.Array(1), dtype.Array(1)
+    min_[0] = array[0]
+    max_[0] = array[0]
+    @for_range(size)  # Maybe no need
+    def _(i):
+    # for i in range(size):
+        val = array[i]
+        # min_ = (val < min_).if_else(val, min_)
+        # max_ = (val < max_).if_else(max_, val)
+        min_[0] = min_[0].min(val)
+        max_[0] = max_[0].max(val)
+    return min_[0], max_[0]
+
+
+def convert_array_to_distribution(data):
+    global bin_values, n, num_bins, bin_size
+    # n = len(data)
+    d_min, d_max = get_min_max(data, n)
+    # d_range = d_max - d_min
+    # bin_size = (d_range + 1) / num_bins
+    hist = sint.Array(num_bins)
+    hist.assign_all(0)
+    @for_range(n)
+    def _(i):
+    # for i in range(n):
+        d = data[i]
+        index = (d - d_min).private_division(bin_size)
+        hist[index.reveal()] += 1
+    bin_values = sfix.Array(num_bins)
+    bin_values.assign_all(0)
+    @for_range(num_bins)
+    def _(i):
+    # for i in range(num_bins):
+        bin_values[i] = sfix(hist[i]) / n
+
+
+def match_query(query, bin_name):
+    l, r = query
+    ret = MemValue(False)
+    # @if_(l <= bin_name and (bin_name != -1 and bin_name <= r or r == -1))
+    @if_((l <= bin_name).bit_and((bin_name != -1).bit_and(bin_name <= r).bit_or(r == -1)))
+    def _():
+        ret.write(True)
+    return ret
+    # if l <= bin_name and (bin_name != -1 and bin_name <= r or r == -1):
+    #     return True
+    # return False
+    # return (l < bin_name).if_else(1, 0)
+
+
+def execute_query(query, bin_values):
+    cum = sfix.Array(1)
+    cum[0] = 0
+    @for_range(num_bins)
+    def _(i):
+        @if_(match_query(query, i))
+        def _():
+            cum[0] = cum[0] + bin_values[i]
+    return cum[0]
+
+
+def exp(exponent):
+    return pow_fx(e, exponent)
+
+def ln(num):
+    return log_fx(num, e)
+
+def uniform_sample():
+    return sfix.get_random(0, 1)
+
+
+def Initialize(domain_size):
+    '''
+    TODO: Real uniform distribution
+    '''
+    ret = sfix.Array(domain_size)
+    ret.assign_all(1/domain_size)
+    return ret
+
+
+def ExponentialMechanism(queries, real_query_results, approx_dataset, local_epsilon):
+    '''
+    TODO: Identify the types of computation needed
+    TODO: Optimize
+    '''
+    global n, num_query
+    probs = sfix.Array(num_query)
+    scores = sfix.Array(num_query)
+    scores.assign_all(0)
+    @for_range(num_query)
+    def _(i):
+    # for i in range(num_query):
+        query = queries[i]
+        r_real = real_query_results[i]
+        r = execute_query(query, approx_dataset)
+        diff = abs(r_real - r)
+        score = local_epsilon * diff * n / 2
+        scores[i] = score
+    _, max_score = get_min_max(scores, num_query, sfix)
+    @for_range(num_query)
+    def _(i):
+    # for i in range(num_query):
+        score = scores[i] - max_score  # TODO: Used to scale the exp to minimize precision loss? Is it really useful? Shouldn't it be the opposite? Maybe should minus min_score?
+        probs[i] = exp(score)
+    # print("\nEM probs:", probs)
+    # Normalize the probabilities
+    prob_sum = sum(probs)
+    @for_range(num_query)
+    def _(i):
+    # for i in range(num_query):
+        probs[i] = probs[i] / prob_sum
+    # Select based on probabilities
+    tgt = uniform_sample()
+    curr_cum = sfix.Array(1)
+    curr_cum.assign_all(0)
+
+    #TODO: Check correctness
+    # Return the i such that curr_cum >= tgt (or curr_cum > tgt?)
+    index = sint.Array(1)
+    index.assign_all(-1)
+    @for_range(num_query)
+    def _(i):
+    # for i in range(num_query):
+        curr_cum[0] += probs[i]
+        index[0] = (index[0] >= 0).if_else(index[0], (curr_cum[0] >= tgt).if_else(i, index[0]))
+    return index[0]
+
+
+def laplace_sample(b):
+    x_1 = uniform_sample()
+    x_2 = uniform_sample()
+    return b * (ln(x_1) - ln(x_2))
+
+
+# The Laplace Mechanism only deals with one query, selected from the Exponential Mechanism
+def LaplaceMechanism(q_index, real_query_results, n, local_epsilon):
+    r_real = real_query_results[q_index.reveal()]
+    delta = laplace_sample(local_epsilon) / n
+    # print("Laplace delta/r_real: ", delta, r_real, delta / r_real if r_real != 0 else 0)
+    return r_real + delta
+
+
+def MultiplicativeWeights(query, measurement, approx_dataset):
+    '''
+    param measurements: The measurements returned from the Laplace Mechanism step
+
+    param repetition: Repeated doing MW. Implementation is likely incorrect -- should we store all measurements previously obtained and apply all of them?
+    '''
+    # Having these two to support "repetition". But because repetition is not correctly implemented, having both of them only complicates the code.
+    global num_bins
+    approx_dataset_new = sfix.Array(num_bins)
+    q_x = cint.Array(num_bins)
+    @for_range(num_bins)
+    def _(i):
+    # for i in range(num_bins):
+        q_x[i] = match_query(query, i)
+    diff = measurement - execute_query(query, approx_dataset)
+    diff_ = diff / 2
+    @for_range(num_bins)
+    def _(i):
+    # for i in range(num_bins):
+        bin_value = approx_dataset[i]
+        # Is it "/2" or "/2n"?
+        # MAYBE: It's the probability of the difference. So after normalization, n = 1. No real different if we use probability representation.
+        bin_value_new = bin_value * exp(q_x[i] * diff_)
+        approx_dataset_new[i] = bin_value_new
+    # Normalize
+    cum = sum(approx_dataset_new)
+    @for_range(num_bins)
+    def _(i):
+    # for i in range(num_bins):
+        approx_dataset_new[i] /= cum
+    approx_dataset = approx_dataset_new
+    return approx_dataset
+
+
+def DetermineResult(approx_dataset_list):
+    '''
+    Determine the final approximation of dataset.
+    There are two main ways (take the last; average), and this function uses one.
+    '''
+    return approx_dataset_list[-1]
+
+
+def mwem(queries, T, epsilon, bin_values):
+    global n, num_bins, num_query
+
+    approx_dataset_list = sfix.Matrix(T, num_bins)
+    approx_dataset = Initialize(num_bins)
+
+    approx_dataset_list[0].assign(approx_dataset)
+
+    real_query_results = sfix.Array(num_query)
+    @for_range(num_query)
+    def _(i):
+    # for i in range(len(queries)):
+        real_query_results[i] = execute_query(queries[i], bin_values)
+
+    local_epsilon = epsilon / T / 2
+
+    @for_range(T)
+    def _(i):
+    # for i in range(T):
+        q_index = ExponentialMechanism(queries, real_query_results, approx_dataset, local_epsilon)
+        q_i = queries[q_index.reveal()]
+        m_i = LaplaceMechanism(q_index, real_query_results, n, local_epsilon)
+        approx_dataset_new = MultiplicativeWeights(q_i, m_i, approx_dataset)
+        approx_dataset_list[i].assign(approx_dataset_new)
+        approx_dataset.assign(approx_dataset_new)
+        # to_show(approx_dataset_new, f"Step {i}")
+    approx_dataset = DetermineResult(approx_dataset_list)
+    return approx_dataset
+
+
+def calc(number_clients, client_ids):
+    '''
+    Core logic
+    '''
+    global data
+
+    print_ln('Reading data')
+    @for_range_opt(number_clients)
+    def f(i):
+        print_ln('Reading data from client %s', i)
+        input_array = client_input(sint, i)
+        # @for_range(NUM_VALUES_INPUT)
+        # def _(j):
+        print_ln('Handling data from client %s', i)
+        for j in range(NUM_VALUES_INPUT):
+            data[i*NUM_VALUES_INPUT+j] = input_array[j]
+        print_ln('Done reading data from client %s', i)
+
+    convert_array_to_distribution(data)
+
+    bin_values.print_reveal_nested()
+
+    approx_dataset = mwem(queries, T, epsilon, bin_values)
+
+    approx_dataset.print_reveal_nested()
+
+    return approx_dataset
+
+
+def main():
+    listen_for_clients(PORTNUM)
+
+    # Clients socket id (integer).
+    client_sockets = Array(NUM_CLIENTS, regint)
+    # Number of clients
+    number_clients = MemValue(regint(NUM_CLIENTS))
+    # Client ids to identity client
+    client_ids = Array(NUM_CLIENTS, sint)
+    # Keep track of received inputs
+    seen = Array(NUM_CLIENTS, regint)
+    seen.assign_all(0)
+
+    # Loop round waiting for each client to connect
+    @for_range(number_clients)
+    def client_connections(i):
+        client_id = accept_client()
+        @if_(client_id >= NUM_CLIENTS)
+        def _():
+            print_ln('client id too high')
+            crash()
+        client_sockets[client_id] = client_id
+        client_ids[client_id] = client_id
+        seen[client_id] = 1
+
+    @if_(sum(seen) < number_clients)
+    def _():
+        print_ln('Duplicated clients exist')
+        crash()
+
+    approx_dataset = calc(number_clients, client_ids)
+    # print_ln('Found winner, index: %s.', winning_client_id.reveal())
+
+    write_result_to_clients(client_sockets, number_clients,
+                            approx_dataset)
+
+    close_connections(number_clients)
+
+    print_ln('Result: %s', approx_dataset.reveal())
+
+main()

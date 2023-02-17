@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 import sys
 
 sys.path.append('.')
@@ -7,14 +5,18 @@ sys.path.append('.')
 from client import *
 from domains import *
 
-client_id = int(sys.argv[1])
-in_file = sys.argv[2]
-player_hosts = [host.split(':')[0] for host in sys.argv[3].split(',') if host]
 
 def _arg_or(arg_index, fallback, _type=int):
     return _type(sys.argv[arg_index]) if len(sys.argv) > arg_index else fallback
 
-array_size = _arg_or(4, 4)
+
+client_id = int(sys.argv[1])
+in_file = sys.argv[2]
+player_hosts = [host.split(':')[0] for host in sys.argv[3].split(',') if host]
+
+data_size = _arg_or(4, 4)
+
+num_bins = _arg_or(5, 10)
 
 client = Client(player_hosts, 14000, client_id)
 
@@ -37,10 +39,12 @@ with open(in_file, 'r') as fd:
             data = int(seg)
             data_list.append(data)
             count += 1
-            if count == array_size:
+            if count == data_size:
                 f_enough = True
                 break
 
     client.send_private_inputs([domain(data) for data in data_list])
 
-    print(client.receive_outputs(domain, 1)[0].v % 2 ** 64)
+    result = [res.v % 2 ** 64 / 2 ** 16 for res in client.receive_outputs(domain, num_bins)]
+
+    print(result)
