@@ -46,7 +46,7 @@ The resource description describes the available / chosen resources to use in th
 
 1. `urn:solid:mpc#data`: Data URL
 
-2. `urn:solid:mpc#webid`: Configuration of data owner (e.g. WebID document)
+2. `urn:solid:mpc#pref`: Configuration/Preference of data owner (e.g. WebID document, dedicated Turtle file for MPC preference)
 
 
 
@@ -65,13 +65,13 @@ Each entry can be a `urn:solid:mpc#:MPCSource`, but not mandatory. The resource 
   :source :src1, :src2.
 
 :src1 a :MPCSource;
-  :webid <https://uri/to/webid1>;
+  :pref <https://uri/to/reference1>;
   :data <https://uri/to/data1>.
 
 
 :src2 a :MPCSource;
-  :webid <https://uri/to/webid2>;
-  :data <https://uri/to/webid2>.
+  :pref <https://uri/to/preference2>;
+  :data <https://uri/to/data2>.
 ```
 
 

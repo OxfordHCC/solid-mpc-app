@@ -1,5 +1,3 @@
-import "./basic.css"
-
 import { getDefaultSession, fetch } from "@inrupt/solid-client-authn-browser"
 import { overwriteFile, getSourceUrl } from "@inrupt/solid-client";
 import { universalAccess } from "@inrupt/solid-client";
@@ -11,38 +9,10 @@ const textDummyDataCount = document.getElementById("count_dummy_data");
 const textEncAgentCount = document.getElementById("count_enc_agent");
 const textEncAgentWebid = document.getElementById("enc_agent_webid");
 const textAppUserWebid = document.getElementById("app_user_webid");
-const buttonWriteToPod = document.getElementById("write-to-pod");
+// const buttonWriteToPod = document.getElementById("write-to-pod");
 
 const COMPUTATION_SERVERS = [ "http://192.168.0.2:8000", "http://192.168.0.3:8000", "http://192.168.0.4:8000" ];
 
-
-async function onWriteDummyDataPressed() {
-    const resFileURL = textResFile.value;
-    const containerURL = textDummyDataDir.value;
-    let f_f_url = (i) => {
-        return `${containerURL}/user-${i}-data.txt`;
-    }
-    let f_p_url = (i) => {
-        return `${containerURL}/user-${i}-pref.ttl`;
-    }
-    const numberOfDataProviders = parseInt(textDummyDataCount.value);
-    const numberOfEncryptionAgents = parseInt(textEncAgentCount.value);
-    const encryptionAgentWebIds = textEncAgentWebid.value.split("\n").map(item => item.trim());
-    const mpcAppUserWebIds = textAppUserWebid.value.split("\n").map(item => item.trim());
-    const fileContent = textDummyData.value;
-    const solidFetch = getDefaultSession().fetch;
-
-    let resources = [];
-    for (let i = 0; i < numberOfDataProviders; i++) {
-        const dataFileURL = f_f_url(i);
-        const prefFileURL = f_p_url(i);
-        const prefFileContent = genPrefFileContent(i, numberOfEncryptionAgents, COMPUTATION_SERVERS);
-        createDummyData(dataFileURL, fileContent, prefFileURL, prefFileContent, solidFetch);
-        resources.push([dataFileURL, prefFileURL]);
-    }
-    setPermissionForEncryptionAgents(containerURL, encryptionAgentWebIds, mpcAppUserWebIds, fetch); // Set permission to container instead of each file, due to solid-client won't create ACL file if it does not exist.
-    writeDataResourceFile(resFileURL, resources, solidFetch);
-}
 
 async function onRunBenchmarkPressed() {
     const resFileURL = textResFile.value;
@@ -89,7 +59,7 @@ async function runBenchmarks(listOfNumberOfDataProviders) {
     }
 }
 
-function genPrefFileContent(index, numberOfEncryptionServers, addressOfComputationServers) {
+export function genPrefFileContent(index, addressOfEncryptionServers, addressOfComputationServers) {
     let content = `
 @prefix schema: <http://schema.org/>.
 <#myPref>
@@ -102,12 +72,12 @@ function genPrefFileContent(index, numberOfEncryptionServers, addressOfComputati
     <urn:solid:mpc#trustedEncryptionServer>
     `;
 
-    content += Array.from(Array(numberOfEncryptionServers).keys()).map(n => `[ schema:url "http://192.168.0.1:${8000+n}" ]`).join(", ") + ".";
+    content += addressOfEncryptionServers.map(e => `[ schema:url "${e}" ]`).join(", ") + ".";
 
     return content;
 }
 
-async function createDummyData(dataFileURL, dataFileContent, prefFileURL, prefFileContent, fetch) {
+export async function createDummyData(dataFileURL, dataFileContent, prefFileURL, prefFileContent, fetch) {
     await writeFileToPod(dataFileURL, dataFileContent, fetch, "text/plain");
     await writeFileToPod(prefFileURL, prefFileContent, fetch, "text/turtle");
 }
@@ -127,7 +97,7 @@ async function writeFileToPod(targetFileURL, fileContent, fetch, type ) {
     }
 }
 
-async function setPermissionForEncryptionAgents(targetURL, encryptionAgentWebIds, mpcAppUserWebIds, fetch) {
+export async function setPermissionForEncryptionAgents(targetURL, encryptionAgentWebIds, mpcAppUserWebIds, fetch) {
     encryptionAgentWebIds.forEach((agent) => {
         allowAgentRead(targetURL, agent, fetch);
     });
@@ -136,7 +106,7 @@ async function setPermissionForEncryptionAgents(targetURL, encryptionAgentWebIds
     });
 }
 
-async function writeDataResourceFile(targetURL, resources, fetch) {
+export async function writeDataResourceFile(targetURL, resources, fetch) {
     let content = `
 @prefix : <urn:solid:mpc#>.
 `;
@@ -181,6 +151,6 @@ function logAccessInfo(agent, agentAccess, resource) {
     }
 }
 
-buttonWriteToPod.onclick = function () {
-    onWriteDummyDataPressed();
-}
+// buttonWriteToPod.onclick = function () {
+//     onWriteDummyDataPressed();
+// }
