@@ -8,6 +8,10 @@ import {
     writeDataResourceFile,
 } from '../common/benchmark';
 
+const emit = defineEmits<{
+  (e: 'runningStatus', status: boolean): void
+}>();
+
 const sessionStore = useSessionStore();
 
 // const DEFAULT_COMPUTATION_SERVERS = [ "http://192.168.0.2:8000", "http://192.168.0.3:8000", "http://192.168.0.4:8000" ];
@@ -63,7 +67,10 @@ function getDataF() {
     throw new Error("No dummy data method seleted???");
 }
 
-function onSubmitForm() {
+async function onSubmitForm() {
+    emit("runningStatus", true);
+
+    const p_list = [];
 
     const info = {
         resFileUrl: form.resDescUrl,
@@ -91,11 +98,17 @@ function onSubmitForm() {
         const prefFileURL = f_p_url(i);
         const prefFileContent = genPrefFileContent(i, info.encSrvs, info.compSrvs);
         const data = info.data(i);
-        createDummyData(dataFileURL, data, prefFileURL, prefFileContent, solidFetch);
+        const p = createDummyData(dataFileURL, data, prefFileURL, prefFileContent, solidFetch);
+        p_list.push(p);
         resources.push([dataFileURL, prefFileURL]);
     }
-    setPermissionForEncryptionAgents(info.containerURL, info.encAgents, info.appUsers, solidFetch); // Set permission to container instead of each file, due to solid-client won't create ACL file if it does not exist.
-    writeDataResourceFile(info.resFileUrl, resources, solidFetch);
+    p_list.push(setPermissionForEncryptionAgents(info.containerURL, info.encAgents, info.appUsers, solidFetch)); // Set permission to container instead of each file, due to solid-client won't create ACL file if it does not exist.
+    p_list.push(writeDataResourceFile(info.resFileUrl, resources, solidFetch));
+
+    console.log("Waiting for dummy data created")
+    await Promise.allSettled(p_list);
+    console.log("Finished creating dummy data")
+    emit("runningStatus", false);
 }
 </script>
 

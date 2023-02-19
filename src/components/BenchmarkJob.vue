@@ -18,11 +18,37 @@ const info = reactive({
   numIter: 3,
 });
 
+const mwemInfo = reactive({
+  numBins: 10,
+  binSize: 2,
+  epsilon: 2,
+  T: 30,
+})
+
+function mwemToArgs() {
+  return {
+    playerExtraArgs: [mwemInfo.numBins, mwemInfo.binSize, mwemInfo.epsilon, mwemInfo.T],
+    clientExtraArgs: [mwemInfo.numBins],
+  };
+}
+
+function getExtraArgs() {
+  if (info.compJob == "mwem") {
+    return mwemToArgs();
+  }
+  return {};
+}
+
 async function onSubmitBenchmarkJobInput() {
     emit("runningStatus", true);
-    for (let i = 0; i < info.numIter; i++) {
+
+    const myInfo = {
+      ...info,
+      ...getExtraArgs(),
+    };
+    for (let i = 0; i < myInfo.numIter; i++) {
         emit("iterChanged", i, info.numIter);
-        await runJobWithInfo(info);
+        await runJobWithInfo(myInfo);
     }
     emit("runningStatus", false);
 }
@@ -49,9 +75,20 @@ async function onSubmitBenchmarkJobInput() {
             <v-radio label="Sum" value="sum"></v-radio>
             <v-radio label="Multiply" value="multiply"></v-radio>
             <v-radio label="Average" value="average"></v-radio>
+            <v-radio label="MWEM" value="mwem"></v-radio>
           </v-radio-group>
           <v-text-field label="Number of data in each input" type="number"
             v-model.number="info.dataSize"></v-text-field>
+          <template v-if="info.compJob == 'mwem'">
+            <v-text-field label="Number of bins" type="number"
+              v-model.number="mwemInfo.numBins"></v-text-field>
+            <v-text-field label="Bin size" type="number"
+              v-model.number="mwemInfo.binSize"></v-text-field>
+            <v-text-field label="Epsilon" type="number"
+              v-model.number="mwemInfo.epsilon"></v-text-field>
+            <v-text-field label="T (number of iterations)" type="number"
+              v-model.number="mwemInfo.T"></v-text-field>
+          </template>
           <v-text-field label="Number of iterations" type="number"
             v-model.number="info.numIter"></v-text-field>
           <v-btn type="submit" block @click.prevent="onSubmitBenchmarkJobInput()">Run Benchmark</v-btn>

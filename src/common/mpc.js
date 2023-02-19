@@ -3,7 +3,6 @@ import { useRunningInfoStore } from "@/stores/runningInfoStore";
 import { useSessionStore } from "@/stores/session";
 import { computed } from "vue";
 
-
 const myEngine = new QueryEngine();
 
 const re_hostname = new RegExp("https?://([^:/]+)(:[0-9]+)?");
@@ -11,12 +10,12 @@ const re_hostname = new RegExp("https?://([^:/]+)(:[0-9]+)?");
 const runningInfoStore = useRunningInfoStore();
 const info = runningInfoStore;
 
-const sessionStore = useSessionStore();
-
 function solidFetch(...args) {
+  const sessionStore = useSessionStore();
   return sessionStore.session.fetch(...args);
 }
 
+const sessionStore = useSessionStore();
 const session = computed(() =>
   sessionStore.isLoggedIn ? sessionStore.session : undefined
 );
@@ -37,14 +36,14 @@ export async function runJob(
     playerExtraArgs,
    } = jobInfo;
 
-   console.log([clientExtraArgs, playerExtraArgs]);
+  console.log("  Preparing");
 
   let res_desc = await getResourceDescription(res_desc_url);
 
-  console.log(["res_desc", res_desc]);
+  // console.log(["res_desc", res_desc]);
 
   info.numDp = res_desc.length;
-  console.log(`NumDP: ${info.numDp} :: ${res_desc.length}`);
+  // console.log(`NumDP: ${info.numDp} :: ${res_desc.length}`);
 
   let listOfTrustedComputationAgents = [];
   let computation_desc = [];
@@ -64,15 +63,6 @@ export async function runJob(
     jobs_collect_info.push(f_collect_info(index, pref, data));
   });
   await Promise.all(jobs_collect_info);
-  // for (const [index, [pref, data]] of res_desc.entries()) {
-  //     const encryption_servers = await getTrustedEncryptionServers(pref);
-  //     const server_index = Math.floor(Math.random() * encryption_servers.length);
-  //     const enc_srv = encryption_servers[server_index];
-  //     const computation_servers = await getTrustedComputationServers(pref);
-  //     listOfTrustedComputationAgents.push(computation_servers);
-  //     computation_desc.push([index, enc_srv, data]);
-  //     textEncSrvs.value += enc_srv + "\n";
-  // }
 
   if (
     method_to_merge_comp_agents != "intersection" &&
@@ -81,6 +71,7 @@ export async function runJob(
     alert("Invalid method to combine computation agents!");
     return;
   }
+
   const chosen_comptuation_servers = chooseComputationAgents(
     num_computation_server,
     listOfTrustedComputationAgents,
@@ -124,6 +115,8 @@ export async function runJob(
     info.allocate[player_place_id] = port;
   }
 
+  const p_ca_result_list = [];
+
   const f_run_comptuation_jobs = async () => {
     const promises = [];
     for (const [
@@ -144,7 +137,7 @@ export async function runJob(
       );
 
       response_p.then(function (v) {
-        v.text().then(
+        const p_res = v.text().then(
           function (t) {
             info.resPlayer[player_id] = t;
           },
@@ -152,6 +145,8 @@ export async function runJob(
             info.resPlayer[player_id] = `${v.status} ${v.statusText}`;
           }
         );
+
+        p_ca_result_list.push(p_res);
       });
 
       promises.push(response_p);
@@ -173,7 +168,7 @@ export async function runJob(
         clientExtraArgs,
       );
       const p = response.then(function (v) {
-        v.text().then(
+        return v.text().then(
           async function (t) {
             const client_uuid = JSON.parse(t);
             info.resClient[client_id] = `${client_uuid}`;
@@ -194,9 +189,12 @@ export async function runJob(
     return await Promise.all(promises);
   };
 
+  console.log("  Deploying and running");
+
   return await Promise.all([
     f_run_encryption_jobs(),
     f_run_comptuation_jobs(),
+    ...p_ca_result_list,
   ]);
 }
 
@@ -210,7 +208,7 @@ async function getResourceDescription(res_desc_url) {
           :source ?s.
         ?s :pref ?pref;
           :data ?data.
-      } LIMIT 100`,
+      }`,
     {
       sources: [res_desc_url],
       "@comunica/actor-http-inrupt-solid-client-authn:session": session.value,
@@ -369,7 +367,7 @@ async function dispatchEncryptionJob(
 }
 
 async function requestComputaionPlayer(computation_server) {
-  console.log(["fetch", solidFetch]);
+  // console.log(["fetch", solidFetch]);
   const response = await solidFetch(`${computation_server}/allocate_player`, {
     method: "PUT",
   });

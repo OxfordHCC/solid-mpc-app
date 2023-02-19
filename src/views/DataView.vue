@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import HighlightSegmentVue from '@/components/HighlightSegment.vue';
 import DummyData from '@/components/DummyData.vue';
+import { ref } from 'vue';
+
+const running = ref(false);
 </script>
 
 <template>
@@ -11,8 +14,11 @@ import DummyData from '@/components/DummyData.vue';
 
   <HighlightSegmentVue>
     <v-container>
-      <DummyData />
+      <DummyData @running-status="status => running = status" />
     </v-container>
+
+    <v-progress-linear v-if="running"
+      indeterminate height="10" striped></v-progress-linear>
 
   </HighlightSegmentVue>
 </template>

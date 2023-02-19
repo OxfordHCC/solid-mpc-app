@@ -3,6 +3,11 @@ import { reactive } from "vue";
 import HighlightSegment from "./HighlightSegment.vue";
 import { runJobWithInfo } from "../common/helper";
 
+const emit = defineEmits<{
+  (e: 'runningStatus', status: boolean): void
+}>();
+
+
 const jobInfo = reactive({
   resDescUrl: "",
   numCompAgent: 0,
@@ -34,11 +39,13 @@ function getExtraArgs() {
 }
 
 async function onSubmitUserJobInput() {
+    emit("runningStatus", true);
   const info = {
     ...jobInfo,
     ...getExtraArgs(),
   };
-  runJobWithInfo(info);
+  await runJobWithInfo(info);
+    emit("runningStatus", false);
 }
 </script>
 

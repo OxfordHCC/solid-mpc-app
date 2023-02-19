@@ -7,7 +7,7 @@ const iter = reactive({
     curr: 0,
     total: 0,
 })
-const running = ref(true);
+const running = ref(false);
 
 const progress = computed(() => iter.curr * 100 / iter.total);
 </script>
