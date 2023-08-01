@@ -60,10 +60,10 @@ T = _arg_or(6, 30)
 PORTNUM = 14000
 
 
-data = sint.Array(NUM_VALUES)
+data = sint.Array(num_bins)
+data.assign_all(0)
 n = NUM_VALUES  # Num of data
 
-input_buf = sint.Array(NUM_VALUES_INPUT)
 num_players = get_number_of_players()
 
 print(f"num_query: {num_query} num_client: {NUM_CLIENTS} num_input: {NUM_VALUES_INPUT} num_bin: {num_bins} bin_size: {bin_size} T: {T} epsilon: {epsilon}")
@@ -83,7 +83,7 @@ def client_input(t, client_socket_id):
     Send share of random value, receive input and deduce share.
     """
     
-    return t.receive_from_client(NUM_VALUES_INPUT, client_socket_id)
+    return t.receive_from_client(num_bins, client_socket_id)
 
 def write_result_to_clients(sockets, number_clients, result):
     """Send share of winning client id to all clients who joined game."""
@@ -124,6 +124,13 @@ def convert_array_to_distribution(data):
         hist[index.reveal()] += 1
     bin_values = sfix.Array(num_bins)
     bin_values.assign_all(0)
+    @for_range(num_bins)
+    def _(i):
+    # for i in range(num_bins):
+        bin_values[i] = sfix(hist[i]) / n
+
+def convert_histogram_to_distribution(hist):
+    global bin_values, n, num_bins
     @for_range(num_bins)
     def _(i):
     # for i in range(num_bins):
@@ -239,10 +246,7 @@ def LaplaceMechanism(q_index, real_query_results, n, local_epsilon):
 def MultiplicativeWeights(query, measurement, approx_dataset):
     '''
     param measurements: The measurements returned from the Laplace Mechanism step
-
-    param repetition: Repeated doing MW. Implementation is likely incorrect -- should we store all measurements previously obtained and apply all of them?
     '''
-    # Having these two to support "repetition". But because repetition is not correctly implemented, having both of them only complicates the code.
     global num_bins
     approx_dataset_new = sfix.Array(num_bins)
     q_x = cint.Array(num_bins)
@@ -297,7 +301,6 @@ def mwem(queries, T, epsilon, bin_values):
     @for_range(T)
     def _(i):
     # for i in range(T):
-        print_ln("Running iter %s", i)
         q_index = ExponentialMechanism(queries, real_query_results, approx_dataset, local_epsilon)
         q_i = queries[q_index.reveal()]
         m_i = LaplaceMechanism(q_index, real_query_results, n, local_epsilon)
@@ -323,11 +326,12 @@ def calc(number_clients, client_ids):
         # @for_range(NUM_VALUES_INPUT)
         # def _(j):
         print_ln('Handling data from client %s', i)
-        for j in range(NUM_VALUES_INPUT):
-            data[i*NUM_VALUES_INPUT+j] = input_array[j]
+        for j in range(num_bins):
+            data[j] += input_array[j]
         print_ln('Done reading data from client %s', i)
 
-    convert_array_to_distribution(data)
+    # convert_array_to_distribution(data)
+    convert_histogram_to_distribution(data)
 
     bin_values.print_reveal_nested()
 
@@ -354,7 +358,6 @@ def main():
     # Loop round waiting for each client to connect
     @for_range(number_clients)
     def client_connections(i):
-        print_ln('Waiting for %s-th client', i)
         client_id = accept_client()
         @if_(client_id >= NUM_CLIENTS)
         def _():

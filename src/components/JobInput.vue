@@ -27,7 +27,7 @@ const mwemInfo = reactive({
 function mwemToArgs() {
   return {
     playerExtraArgs: [mwemInfo.numBins, mwemInfo.binSize, mwemInfo.epsilon, mwemInfo.T],
-    clientExtraArgs: [mwemInfo.numBins],
+    clientExtraArgs: [mwemInfo.numBins, mwemInfo.binSize],
   };
 }
 
@@ -65,12 +65,15 @@ async function onSubmitUserJobInput() {
           <v-radio-group label="Protocol" inline v-model="jobInfo.protocol">
             <v-radio label="Shamir" value="shamir"></v-radio>
             <v-radio label="MASCOT" value="mascot"></v-radio>
+            <v-radio label="Cowgear" value="cowgear"></v-radio>
+            <v-radio label="Chaigear" value="chaigear"></v-radio>
           </v-radio-group>
           <v-radio-group label="Computation job" inline v-model="jobInfo.compJob">
             <v-radio label="Sum" value="sum"></v-radio>
             <v-radio label="Multiply" value="multiply"></v-radio>
             <v-radio label="Average" value="average"></v-radio>
             <v-radio label="MWEM" value="mwem"></v-radio>
+            <v-radio label="MWEM (Histogram input)" value="mwem-histo"></v-radio>
           </v-radio-group>
           <v-text-field label="Number of data in each input" type="number"
             v-model.number="jobInfo.dataSize"></v-text-field>

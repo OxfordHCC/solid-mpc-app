@@ -28,7 +28,7 @@ const mwemInfo = reactive({
 function mwemToArgs() {
   return {
     playerExtraArgs: [mwemInfo.numBins, mwemInfo.binSize, mwemInfo.epsilon, mwemInfo.T],
-    clientExtraArgs: [mwemInfo.numBins],
+    clientExtraArgs: [mwemInfo.numBins, mwemInfo.binSize],
   };
 }
 
@@ -76,6 +76,7 @@ async function onSubmitBenchmarkJobInput() {
             <v-radio label="Multiply" value="multiply"></v-radio>
             <v-radio label="Average" value="average"></v-radio>
             <v-radio label="MWEM" value="mwem"></v-radio>
+            <v-radio label="MWEM (Histogram input)" value="mwem-histo"></v-radio>
           </v-radio-group>
           <v-text-field label="Number of data in each input" type="number"
             v-model.number="info.dataSize"></v-text-field>

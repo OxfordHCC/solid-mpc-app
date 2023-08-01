@@ -1,18 +1,21 @@
 import { getDefaultSession, fetch } from "@inrupt/solid-client-authn-browser";
 import { overwriteFile, getSourceUrl } from "@inrupt/solid-client";
 import { universalAccess } from "@inrupt/solid-client";
-import { runJob } from "./mpc.js";
 
-export async function runBenchmark(jobInfos, numIter) {
+export async function runBenchmark(jobInfos, numIter, mpcJs) {
   for (let i = 0; i < jobInfos.length; i++) {
     const jobInfo = jobInfos[i];
     console.log(`Running benchmark #${i}: ${jobInfo.resDescUrl}`);
 
-    await runBenchmark_iter(jobInfo, numIter, fetch);
+    await runBenchmark_iter(jobInfo, numIter, fetch, mpcJs);
   }
 }
 
-async function runBenchmark_iter(jobInfo, numIter, solidFetch) {
+async function runBenchmark_iter(jobInfo, numIter, solidFetch, mpcJs) {
+  if (!mpcJs) {
+    mpcJs = "./mpc.js";
+  }
+  const runJob = (await import(mpcJs /* @vite-ignore */)).runJob;
   for (let i = 0; i < numIter; i++) {
     console.log(` Iter #${i}`);
     const computation_id = "compute_" + crypto.randomUUID();

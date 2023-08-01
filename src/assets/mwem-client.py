@@ -43,7 +43,11 @@ with open(in_file, 'r') as fd:
                 f_enough = True
                 break
 
+    print('Data:', data_list)
+
     client.send_private_inputs([domain(data) for data in data_list])
+
+    print('Data sent')
 
     result = [res.v % 2 ** 64 / 2 ** 16 for res in client.receive_outputs(domain, num_bins)]
 

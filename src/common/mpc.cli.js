@@ -1,25 +1,53 @@
 import { QueryEngine } from "@comunica/query-sparql-solid";
-import { useRunningInfoStore } from "@/stores/runningInfoStore";
-import { useSessionStore } from "@/stores/session";
-import { computed } from "vue";
+// import { useRunningInfoStore } from "@/stores/runningInfoStore";
+// import { useSessionStore } from "@/stores/session";
+// import { computed } from "vue";
+
+import fs from "fs";
 
 const myEngine = new QueryEngine();
 
 const re_hostname = new RegExp("https?://([^:/]+)(:[0-9]+)?");
 
-const info = useRunningInfoStore();
+// const runningInfoStore = useRunningInfoStore();
+// const info = runningInfoStore;
+let info = {
+  numDp: undefined,
+  encSrv: [],
+  compSrv: [],
+  allocate: {},
+  resPlayer: {},
+  resClient: {},
+  resultClient: "",
+  result: "",
+};
 
-function solidFetch(...args) {
-  const sessionStore = useSessionStore();
-  return sessionStore.session.fetch(...args);
-}
+// function solidFetch(...args) {
+//   const sessionStore = useSessionStore();
+//   return sessionStore.session.fetch(...args);
+// }
+const solidFetch = fetch;
 
-const sessionStore = useSessionStore();
-const session = computed(() =>
-  sessionStore.isLoggedIn ? sessionStore.session : undefined
-);
+// const sessionStore = useSessionStore();
+// const session = computed(() =>
+//   sessionStore.isLoggedIn ? sessionStore.session : undefined
+// );
+const session = {
+  value: undefined,
+};
 
 export async function runJob(computation_id, jobInfo, fetch) {
+  info = {
+    numDp: undefined,
+    encSrv: [],
+    compSrv: [],
+    allocate: {},
+    resPlayer: {},
+    resClient: {},
+    resultClient: "",
+    result: "",
+  };
+
   const {
     resDescUrl: res_desc_url,
     caMergeStrategy: method_to_merge_comp_agents,
@@ -360,16 +388,26 @@ async function getTrustedComputationServers(pref_url) {
   return data;
 }
 
+// async function getEncryptionJobCode(job) {
+//   const code_url = (await import(`@/assets/${job}-client.py`)).default;
+//   const response = await fetch(code_url);
+//   return await response.text();
+// }
 async function getEncryptionJobCode(job) {
-  const code_url = (await import(`@/assets/${job}-client.py`)).default;
-  const response = await fetch(code_url);
-  return await response.text();
+  const code_path = `assets/${job}-client.py`;
+  const data = fs.readFileSync(code_path, { encoding: "utf8" });
+  return data;
 }
 
+// async function getComputationJobCode(job) {
+//   const code_url = (await import(`@/assets/${job}-player.mpc`)).default;
+//   const response = await fetch(code_url);
+//   return await response.text();
+// }
 async function getComputationJobCode(job) {
-  const code_url = (await import(`@/assets/${job}-player.mpc`)).default;
-  const response = await fetch(code_url);
-  return await response.text();
+  const code_path = `assets/${job}-player.mpc`;
+  const data = fs.readFileSync(code_path, { encoding: "utf8" });
+  return data;
 }
 
 function chooseComputationAgents(
